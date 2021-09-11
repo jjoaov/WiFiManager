@@ -611,6 +611,8 @@ void WiFiManager::setupConfigPortal() {
   server->on(String(FPSTR(R_erase)).c_str(),      std::bind(&WiFiManager::handleErase, this, false));
   server->on(String(FPSTR(R_status)).c_str(),     std::bind(&WiFiManager::handleWiFiStatus, this));
   server->onNotFound (std::bind(&WiFiManager::handleNotFound, this));
+
+  server->on(String(F("/data")).c_str(), std::bind(&WiFiManager::handleData, this));
   
   server->on(String(FPSTR(R_update)).c_str(), std::bind(&WiFiManager::handleUpdate, this));
   server->on(String(FPSTR(R_updatedone)).c_str(), HTTP_POST, std::bind(&WiFiManager::handleUpdateDone, this), std::bind(&WiFiManager::handleUpdating, this));
@@ -2186,6 +2188,21 @@ void WiFiManager::handleErase(boolean opt) {
   }	
 }
 
+/**
+ * WiFi Data Handler
+ */
+void WiFiManager::handleData() {
+  #ifdef WM_DEBUG_LEVEL
+      DEBUG_WM(DEBUG_VERBOSE, F("<- HTTP Reading Data"));
+  #endif
+  handleRequest();
+  //server->send(200, FPSTR(HTTP_HEAD_CT2), F("Hello, Client!"));
+
+  File file = LittleFS.open("/data/data.csv", "r");
+  server->streamFile(file, "text/csv");
+  file.close();
+}
+
 /** 
  * HTTPD CALLBACK 404
  */
@@ -2627,15 +2644,6 @@ void WiFiManager::setSaveParamsCallback( std::function<void()> func ) {
  */
 void WiFiManager::setPreSaveConfigCallback( std::function<void()> func ) {
   _presavecallback = func;
-}
-
-/**
- * setPreOtaUpdateCallback, set a callback to fire before OTA update
- * @access public
- * @param {[type]} void (*func)(void)
- */
-void WiFiManager::setPreOtaUpdateCallback( std::function<void()> func ) {
-  _preotaupdatecallback = func;
 }
 
 /**
@@ -3596,10 +3604,6 @@ void WiFiManager::handleUpdating(){
 	  if(_debug) Serial.setDebugOutput(true);
     uint32_t maxSketchSpace;
     
-    // Use new callback for before OTA update
-    if (_preotaupdatecallback != NULL) {
-      _preotaupdatecallback();
-    }
     #ifdef ESP8266
     		WiFiUDP::stopAll();
     		maxSketchSpace = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
